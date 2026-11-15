@@ -1,0 +1,22 @@
+info:
+  name: Resete
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: http://localhost:3000/auth/reset
+  body:
+    type: json
+    data: |-
+      {
+        "password": "654321",
+        "token": "12412.12341234.1234213d"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

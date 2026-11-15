@@ -1,0 +1,26 @@
+info:
+  name: Create
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:3000/user
+  body:
+    type: json
+    data: |-
+      {
+        "name": "hash",
+        "email": "hash@email.com",
+       "password": "123456",
+        "role": 1
+      }
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NCwibmFtZSI6ImpyIiwiZW1haWwiOiJqckBlbWFpbC5jb20iLCJpYXQiOjE3OTA4MDU2ODAsImV4cCI6MTc5MTQxMDQ4MCwiYXVkIjoidXNlcnMiLCJpc3MiOiJsb2dpbiIsInN1YiI6IjQifQ.Gb07FYvB3qS-zqCJYRF9b69E68BUmkIKCeU2gB_PKgU
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

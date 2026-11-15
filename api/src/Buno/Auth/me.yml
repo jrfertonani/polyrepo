@@ -1,0 +1,20 @@
+info:
+  name: me
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: http://localhost:3000/auth/me
+  headers:
+    - name: Authorization
+      value: bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NCwibmFtZSI6ImpyIiwiZW1haWwiOiJqckBlbWFpbC5jb20iLCJpYXQiOjE3OTA4MDUxMDMsImV4cCI6MTc5MTQwOTkwMywiYXVkIjoidXNlcnMiLCJpc3MiOiJsb2dpbiIsInN1YiI6IjQifQ.BbJ9JNNFj7AjBgAOy5iA6-3mIhtgkCj3Gf6iJkaJuq8
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwibmFtZSI6ImpyIiwiZW1haWwiOiJqcjJAZW1haWwuY29tIiwiaWF0IjoxNzk0NzYwOTE5LCJleHAiOjE3OTUzNjU3MTksImF1ZCI6InVzZXJzIiwiaXNzIjoibG9naW4iLCJzdWIiOiIyIn0.i0VCScHanRqiL8Op2-sgzAI_JJG5EoiyfGmeea-ppOw
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,30 @@
+info:
+  name: Photo Fields
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: http://localhost:3000/auth/photo-fields
+  body:
+    type: file
+    data:
+      - filePath: ''
+        contentType: ''
+        selected: true
+      - filePath: ''
+        contentType: ''
+        selected: false
+      - filePath: ''
+        contentType: ''
+        selected: false
+      - filePath: ''
+        contentType: ''
+        selected: false
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
