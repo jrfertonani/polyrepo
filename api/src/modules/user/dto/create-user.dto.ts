@@ -3,11 +3,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
-  IsStrongPassword,
-  Min,
-  min,
   MinLength,
-  minLength,
 } from 'class-validator';
 import { Role } from 'src/shared/anums/role.enum';
 
@@ -19,7 +15,7 @@ export class CreateUserDto {
   email: string;
 
   @IsString()
-  @MinLength(2)
+  @MinLength(6)
   password: string;
 
   @IsOptional()

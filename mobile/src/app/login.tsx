@@ -82,6 +82,14 @@ export default function LoginScreen() {
         />
 
         <Pressable
+          style={styles.forgotLink}
+          onPress={() => router.push("/forgot-password")}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.forgotText}>Esqueci minha senha</Text>
+        </Pressable>
+
+        <Pressable
           style={[styles.button, isSubmitting && styles.buttonDisabled]}
           onPress={handleLogin}
           disabled={isSubmitting}
@@ -91,6 +99,16 @@ export default function LoginScreen() {
           ) : (
             <Text style={styles.buttonText}>Entrar</Text>
           )}
+        </Pressable>
+
+        <View style={styles.divider} />
+
+        <Pressable
+          style={styles.registerButton}
+          onPress={() => router.push("/register")}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.registerButtonText}>Criar nova conta</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -135,16 +153,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    marginBottom: 16,
+    marginBottom: 14,
     backgroundColor: "#f8fafc",
     color: "#0f172a",
+  },
+  forgotLink: {
+    alignSelf: "flex-end",
+    marginBottom: 18,
+  },
+  forgotText: {
+    color: "#2563eb",
+    fontSize: 14,
+    fontWeight: "500",
   },
   button: {
     backgroundColor: "#2563eb",
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 8,
   },
   buttonDisabled: {
     opacity: 0.65,
@@ -152,6 +178,23 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#ffffff",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#e2e8f0",
+    marginVertical: 20,
+  },
+  registerButton: {
+    borderWidth: 1,
+    borderColor: "#2563eb",
+    paddingVertical: 13,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  registerButtonText: {
+    color: "#2563eb",
+    fontSize: 15,
     fontWeight: "600",
   },
 });
