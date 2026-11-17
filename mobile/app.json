@@ -8,9 +8,11 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.ademir.mobile"
     },
     "android": {
+      "package": "com.ademir.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -33,7 +35,15 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O aplicativo precisa acessar sua galeria para selecionar uma foto de perfil.",
+          "cameraPermission": "O aplicativo precisa acessar sua câmera para tirar uma foto de perfil."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

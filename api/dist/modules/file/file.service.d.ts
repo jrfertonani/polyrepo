@@ -1,3 +1,7 @@
+import 'multer';
 export declare class FileService {
-    upload(file: Express.Multer.File, path: string): Promise<void>;
+    private readonly logger;
+    private readonly storageRoot;
+    upload(file: Express.Multer.File, filePath: string): Promise<void>;
+    removeByPublicUrl(publicUrl?: string | null): Promise<void>;
 }

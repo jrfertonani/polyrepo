@@ -12,55 +12,82 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserService = void 0;
 const common_1 = require("@nestjs/common");
 const bcrypt = require("bcrypt");
-const log_interceptor_1 = require("../../common/interceptors/log.interceptor");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const role_enum_1 = require("../../shared/anums/role.enum");
+const USER_SAFE_SELECT = {
+    id: true,
+    name: true,
+    email: true,
+    role: true,
+    photoUrl: true,
+    createdAt: true,
+    updatedAt: true,
+};
 let UserService = class UserService {
     constructor(prisma) {
         this.prisma = prisma;
     }
     async create(data) {
-        const salt = await bcrypt.genSalt();
-        data.password = await bcrypt.hash(data.password, salt);
         const emailExists = await this.prisma.user.count({
-            where: {
-                email: data.email,
-            },
+            where: { email: data.email },
         });
         if (emailExists > 0) {
             throw new common_1.ConflictException('Email já cadastrado.');
         }
-        return await this.prisma.user.create({
-            data,
+        const salt = await bcrypt.genSalt();
+        const hashedPassword = await bcrypt.hash(data.password, salt);
+        return this.prisma.user.create({
+            data: {
+                ...data,
+                password: hashedPassword,
+            },
+            select: USER_SAFE_SELECT,
         });
     }
     findAll() {
-        return this.prisma.user.findMany();
+        return this.prisma.user.findMany({
+            select: USER_SAFE_SELECT,
+        });
     }
     async findOne(id) {
         await this.exist(id);
-        return await this.prisma.user.findUnique({
-            where: {
-                id,
-            },
+        return this.prisma.user.findUnique({
+            where: { id },
+            select: USER_SAFE_SELECT,
         });
     }
     async update(id, data) {
         await this.exist(id);
-        const salt = await bcrypt.genSalt();
-        data.password = await bcrypt.hash(data.password, salt);
+        if (data.email) {
+            const emailInUse = await this.prisma.user.findFirst({
+                where: {
+                    email: data.email,
+                    NOT: { id },
+                },
+            });
+            if (emailInUse) {
+                throw new common_1.ConflictException('Este e-mail já está em uso por outro usuário.');
+            }
+        }
+        const updateData = { ...data };
+        if ('password' in updateData && updateData.password) {
+            const salt = await bcrypt.genSalt();
+            updateData.password = await bcrypt.hash(updateData.password, salt);
+        }
+        else {
+            delete updateData.password;
+        }
         return this.prisma.user.update({
-            where: {
-                id,
-            },
-            data,
+            where: { id },
+            data: updateData,
+            select: USER_SAFE_SELECT,
         });
     }
     async remove(id) {
         await this.findOne(id);
         return this.prisma.user.delete({
-            where: {
-                id,
-            },
+            where: { id },
+            select: USER_SAFE_SELECT,
         });
     }
     async exist(id) {
@@ -68,11 +95,28 @@ let UserService = class UserService {
             throw new common_1.NotFoundException(`User with id ${id} not found`);
         }
     }
+    async updatePhoto(id, photoUrl) {
+        return this.prisma.user.update({
+            where: { id },
+            data: { photoUrl },
+            select: USER_SAFE_SELECT,
+        });
+    }
+    async updateRole(targetUserId, actorUserId, { role }) {
+        if (targetUserId === actorUserId && role !== role_enum_1.Role.Admin) {
+            throw new common_1.BadRequestException('Você não pode remover sua própria permissão de Administradoe.');
+        }
+        await this.exist(targetUserId);
+        return this.prisma.user.update({
+            where: { id: targetUserId },
+            data: { role },
+            select: USER_SAFE_SELECT,
+        });
+    }
 };
 exports.UserService = UserService;
 exports.UserService = UserService = __decorate([
     (0, common_1.Injectable)(),
-    (0, common_1.UseInterceptors)(log_interceptor_1.LogInterceptor),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], UserService);
 //# sourceMappingURL=user.service.js.map

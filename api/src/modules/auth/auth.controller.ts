@@ -1,25 +1,26 @@
 import { FileService } from './../file/file.service';
 import { UserService } from './../user/user.service';
 import {
+  BadRequestException,
   Body,
   Controller,
-  Post,
-  Headers,
-  UseGuards,
-  UseInterceptors,
-  UploadedFile,
-  BadRequestException,
-  UploadedFiles,
-  ParseFilePipe,
+  Delete,
   FileTypeValidator,
   MaxFileSizeValidator,
+  ParseFilePipe,
+  Patch,
+  Post,
+  UploadedFile,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   FileFieldsInterceptor,
   FileInterceptor,
   FilesInterceptor,
 } from '@nestjs/platform-express';
-import { join, extname } from 'path';
+import { join } from 'path';
 import { User } from 'src/common/decorators/user.decorator';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { AuthService } from 'src/modules/auth/auth.service';
@@ -27,6 +28,8 @@ import { AuthForgetDTO } from 'src/modules/auth/dto/auth-forget.dto';
 import { AuthLoginDTO } from 'src/modules/auth/dto/auth-login.dto';
 import { AuthRegisterDTO } from 'src/modules/auth/dto/auth-register.dto';
 import { AuthResetDTO } from 'src/modules/auth/dto/auth-reset.dto';
+import 'multer';
+import { AuthChangePasswordDTO } from './dto/auth-change-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -34,7 +37,7 @@ export class AuthController {
     private readonly userService: UserService,
     private readonly authService: AuthService,
     private readonly fileService: FileService,
-  ) {}
+  ) { }
 
   @Post('login')
   async login(@Body() { email, password }: AuthLoginDTO) {
@@ -50,46 +53,88 @@ export class AuthController {
   async forget(@Body() { email }: AuthForgetDTO) {
     return this.authService.forget(email);
   }
+
   @Post('reset')
   async reset(@Body() { password, token }: AuthResetDTO) {
     return this.authService.reset(password, token);
   }
 
-  @UseInterceptors(FileInterceptor('file')) // interceptor to handle file upload
   @UseGuards(AuthGuard)
-  @Post('photo') // usa o decorator @UploadedFile() com validações
+  @UseInterceptors(FileInterceptor('file'))
+  @Post('photo')
   async uploadPhoto(
     @User() user,
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          new FileTypeValidator({ fileType: /(jpg|jpeg|png|pdf)$/ }),
-          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }),
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png)$/ }),
+          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }), // 10MB
         ],
       }),
     )
     photo: Express.Multer.File,
   ) {
-    const path = join(
-      __dirname,
-      '..',
-      '..',
-      'storage',
-      'photos',
-      `photo-${user.id}.png`,
-    );
+    const previousPhotoUrl: string | null = user.photoUrl ?? null;
+
+    const fileName = `photo-${user.id}-${Date.now()}.jpg`;
+    const filePath = join(process.cwd(), 'storage', 'photos', fileName);
+    const photoUrl = `/storage/photos/${fileName}`;
 
     try {
-      this.fileService.upload(photo, path);
+      await this.fileService.upload(photo, filePath);
+      const updatedUser = await this.userService.updatePhoto(user.id, photoUrl);
+
+      if (previousPhotoUrl && previousPhotoUrl !== photoUrl) {
+        await this.fileService.removeByPublicUrl(previousPhotoUrl);
+      }
+
+      return {
+        success: true,
+        photoUrl: updatedUser.photoUrl,
+        user: updatedUser,
+      };
     } catch (e) {
-      throw new BadRequestException(e);
+      throw new BadRequestException(
+        e instanceof Error ? e.message : 'Erro ao salvar foto do usuário.',
+      );
     }
-    return { success: true };
   }
 
-  @UseInterceptors(FilesInterceptor('files')) // interceptor to handle multiple file uploads 1
   @UseGuards(AuthGuard)
-  @Post('files') // usa o decorator @UploadedFile()
+  @Delete('photo')
+  async deletePhoto(@User() user) {
+    const currentPhotoUrl: string | null = user.photoUrl ?? null;
+
+    if (!currentPhotoUrl) {
+      return {
+        success: true,
+        photoUrl: null,
+        user,
+      };
+    }
+
+    try {
+      // 1. Limpa o campo photoUrl no PostgreSQL
+      const updatedUser = await this.userService.updatePhoto(user.id, null);
+
+      // 2. Remove o arquivo físico em storage/photos (ignora ENOENT automaticamente)
+      await this.fileService.removeByPublicUrl(currentPhotoUrl);
+
+      return {
+        success: true,
+        photoUrl: null,
+        user: updatedUser,
+      };
+    } catch (e) {
+      throw new BadRequestException(
+        e instanceof Error ? e.message : 'Erro ao remover foto do usuário.',
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @UseInterceptors(FilesInterceptor('files'))
+  @Post('files')
   async uploadFiles(
     @User() user,
     @UploadedFiles() files: Express.Multer.File[],
@@ -97,6 +142,7 @@ export class AuthController {
     return files;
   }
 
+  @UseGuards(AuthGuard)
   @UseInterceptors(
     FileFieldsInterceptor([
       {
@@ -108,9 +154,8 @@ export class AuthController {
         maxCount: 10,
       },
     ]),
-  ) // interceptor to handle multiple file uploads 2
-  @UseGuards(AuthGuard)
-  @Post('files-dields') // usa o decorator @UploadedFile()
+  )
+  @Post('files-dields')
   async uploadFilesFields(
     @User() user,
     @UploadedFiles()
@@ -119,54 +164,22 @@ export class AuthController {
     return files;
   }
 
-  //test token
   @UseGuards(AuthGuard)
   @Post('me')
   async me(@User() user) {
     return { user };
   }
-  // testar este
-  // @UseGuards(AuthGuard) // 1. Garante autenticação primeiro
-  // @UseInterceptors(FileInterceptor('file'))
-  // @Post('photo')
-  // async uploadPhoto(
-  //   @User() user,
-  //   @UploadedFile(
-  //     new ParseFilePipe({
-  //       validators: [
-  //         new FileTypeValidator({ fileType: /(jpg|jpeg|png|pdf)$/ }),
-  //         new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }), // Max 10MB
-  //       ],
-  //     }),
-  //   )
-  //   photo: Express.Multer.File,
-  // ) {
-  //   // Pega a extensão original (.jpg, .png, .pdf, etc.)
-  //   const fileExtension = extname(photo.originalname);
 
-  //   const path = join(
-  //     __dirname,
-  //     '..',
-  //     '..',
-  //     'storage',
-  //     'photos',
-  //     `photo-${user.id}${fileExtension}`,
-  //   );
-
-  //   try {
-  //     // Usa await para garantir a gravação e capturar exceções corretamente
-  //     await this.fileService.upload(photo, path);
-  //   } catch (e) {
-  //     throw new BadRequestException(e);
-  //   }
-
-  //   return {
-  //     success: true,
-  //     file: {
-  //       originalName: photo.originalname,
-  //       mimeType: photo.mimetype,
-  //       size: photo.size, // Retorna o tamanho em bytes
-  //     },
-  //   };
-  // }
+  @UseGuards(AuthGuard)
+  @Patch('password')
+  async changePassword(
+    @User() user,
+    @Body() { currentPassword, newPassword }: AuthChangePasswordDTO,
+  ) {
+    return this.authService.changePassword(
+      user.id,
+      currentPassword,
+      newPassword,
+    );
+  }
 }

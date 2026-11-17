@@ -15,6 +15,8 @@ const core_1 = require("@nestjs/core");
 const config_1 = require("@nestjs/config");
 const mailer_1 = require("@nestjs-modules/mailer");
 const pug_adapter_js_1 = require("@nestjs-modules/mailer/adapters/pug.adapter.js");
+const serve_static_1 = require("@nestjs/serve-static");
+const path_1 = require("path");
 const user_module_1 = require("./modules/user/user.module");
 const auth_module_1 = require("./modules/auth/auth.module");
 const HealthModule_1 = require("./health/HealthModule");
@@ -27,11 +29,19 @@ exports.AppModule = AppModule = __decorate([
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
             }),
+            serve_static_1.ServeStaticModule.forRoot({
+                rootPath: (0, path_1.join)(process.cwd(), 'storage'),
+                serveRoot: '/storage',
+                renderPath: '/no-spa-fallback',
+                serveStaticOptions: {
+                    index: false,
+                },
+            }),
             throttler_1.ThrottlerModule.forRoot({
                 throttlers: [
                     {
                         ttl: 60000,
-                        limit: 10,
+                        limit: 60,
                     },
                 ],
             }),

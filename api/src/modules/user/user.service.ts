@@ -1,75 +1,105 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
-  UseInterceptors,
 } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { dematerialize } from 'rxjs';
 import * as bcrypt from 'bcrypt';
-import { LogInterceptor } from 'src/common/interceptors/log.interceptor';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateProfileDto } from './dto/update-profile';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { Role } from 'src/shared/anums/role.enum';
+
+const USER_SAFE_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  photoUrl: true,
+  createdAt: true,
+  updatedAt: true,
+};
 
 @Injectable()
-@UseInterceptors(LogInterceptor) //interceptor para medir os logs as requisições
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(data: CreateUserDto) {
-    const salt = await bcrypt.genSalt(); // declara a biblioteca bcrypt para gerar um salt
-
-    data.password = await bcrypt.hash(data.password, salt); // declara a biblioteca bcrypt para indicar que o password que esta dentro do data sera criptografado e salva novamente no DB no lugar do password, onde indica data.password
-
     const emailExists = await this.prisma.user.count({
-      where: {
-        email: data.email,
-      },
+      where: { email: data.email },
     });
 
     if (emailExists > 0) {
       throw new ConflictException('Email já cadastrado.');
     }
 
-    return await this.prisma.user.create({
-      data,
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(data.password, salt);
+
+    return this.prisma.user.create({
+      data: {
+        ...data,
+        password: hashedPassword,
+      },
+      select: USER_SAFE_SELECT,
     });
   }
 
   findAll() {
-    return this.prisma.user.findMany();
+    return this.prisma.user.findMany({
+      select: USER_SAFE_SELECT,
+    });
   }
 
   async findOne(id: number) {
     await this.exist(id);
-    return await this.prisma.user.findUnique({
-      where: {
-        id,
-      },
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: USER_SAFE_SELECT,
     });
   }
 
-  async update(id: number, data: UpdateUserDto) {
+  async update(id: number, data: UpdateUserDto | UpdateProfileDto) {
     await this.exist(id);
 
-    const salt = await bcrypt.genSalt();
+    if (data.email) {
+      const emailInUse = await this.prisma.user.findFirst({
+        where: {
+          email: data.email,
+          NOT: { id },
+        },
+      });
 
-    data.password = await bcrypt.hash(data.password, salt);
+      if (emailInUse) {
+        throw new ConflictException(
+          'Este e-mail já está em uso por outro usuário.',
+        );
+      }
+    }
+
+    const updateData: Partial<UpdateUserDto> = { ...data };
+
+    // Só aplica hash se a senha foi enviada na requisição PATCH
+    if ('password' in updateData && updateData.password) {
+      const salt = await bcrypt.genSalt();
+      updateData.password = await bcrypt.hash(updateData.password, salt);
+    } else {
+      delete updateData.password;
+    }
 
     return this.prisma.user.update({
-      where: {
-        id,
-      },
-      data,
+      where: { id },
+      data: updateData,
+      select: USER_SAFE_SELECT,
     });
   }
 
   async remove(id: number) {
     await this.findOne(id);
     return this.prisma.user.delete({
-      where: {
-        id,
-      },
+      where: { id },
+      select: USER_SAFE_SELECT,
     });
   }
 
@@ -77,5 +107,33 @@ export class UserService {
     if (!(await this.prisma.user.count({ where: { id } }))) {
       throw new NotFoundException(`User with id ${id} not found`);
     }
+  }
+
+  async updatePhoto(id: number, photoUrl: string | null) {
+    return this.prisma.user.update({
+      where: { id },
+      data: { photoUrl },
+      select: USER_SAFE_SELECT,
+    });
+  }
+
+  async updateRole(
+    targetUserId: number,
+    actorUserId: number,
+    { role }: UpdateUserDto,
+  ) {
+    if (targetUserId === actorUserId && role !== Role.Admin) {
+      throw new BadRequestException(
+        'Você não pode remover sua própria permissão de Administradoe.'
+      );
+    }
+
+    await this.exist(targetUserId);
+
+    return this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { role },
+      select: USER_SAFE_SELECT,
+    });
   }
 }

@@ -8,18 +8,11 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserModule = void 0;
 const common_1 = require("@nestjs/common");
-const user_service_1 = require("./user.service");
-const user_controller_1 = require("./user.controller");
 const auth_module_1 = require("../auth/auth.module");
 const prisma_module_1 = require("../../prisma/prisma.module");
-const user_id_check_middlware_1 = require("../../common/middlewares/user-id-check.middlware");
+const user_controller_1 = require("./user.controller");
+const user_service_1 = require("./user.service");
 let UserModule = class UserModule {
-    configure(consumer) {
-        consumer.apply(user_id_check_middlware_1.UserIdCheckMiddleware).forRoutes({
-            path: 'user/:id',
-            method: common_1.RequestMethod.ALL,
-        });
-    }
 };
 exports.UserModule = UserModule;
 exports.UserModule = UserModule = __decorate([

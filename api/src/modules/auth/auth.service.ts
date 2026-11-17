@@ -1,43 +1,47 @@
 import {
   BadRequestException,
-  Body,
   Injectable,
   UnauthorizedException,
-  Inject,
-  forwardRef,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { UserService } from 'src/modules/user/user.service';
 import { AuthRegisterDTO } from 'src/modules/auth/dto/auth-register.dto';
+import { UserService } from 'src/modules/user/user.service';
+import { PrismaService } from 'src/prisma/prisma.service';
+
+interface ResetTokenPayload {
+  id: number;
+  version: string;
+  sub: string;
+  iss: string;
+  aud: string;
+}
 
 @Injectable()
 export class AuthService {
-  private audience = 'users';
-  private issuer = 'login';
+  private readonly audience = 'users';
+  private readonly loginIssuer = 'login';
+  private readonly forgetIssuer = 'forget';
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly userService: UserService,
-  ) {}
+  ) { }
 
-  createToken(user: User) {
+  createToken(user: Pick<User, 'id' | 'name' | 'email'>) {
     return {
       accessToken: this.jwtService.sign(
         {
-          // payload
           id: user.id,
           name: user.name,
           email: user.email,
         },
         {
-          //gerar o token
           expiresIn: '7 days',
           subject: String(user.id),
-          issuer: this.issuer,
+          issuer: this.loginIssuer,
           audience: this.audience,
         },
       ),
@@ -47,12 +51,14 @@ export class AuthService {
   checkToken(token: string) {
     try {
       const data = this.jwtService.verify(token, {
-        issuer: this.issuer,
+        issuer: this.loginIssuer,
         audience: this.audience,
       });
       return data;
     } catch (e) {
-      throw new BadRequestException(e);
+      throw new BadRequestException(
+        e instanceof Error ? e.message : 'Token inválido ou expirado.',
+      );
     }
   }
 
@@ -60,7 +66,7 @@ export class AuthService {
     try {
       this.checkToken(token);
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }
@@ -68,49 +74,171 @@ export class AuthService {
   async login(email: string, password: string) {
     const user = await this.prisma.user.findFirst({
       where: {
-        email,
+        email: email.trim().toLowerCase(),
       },
     });
 
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) {
+      throw new UnauthorizedException('Credenciais inválidas.');
+    }
 
-    if (!(await bcrypt.compare(password, user.password)))
-      throw new UnauthorizedException('Invalid credentials'); //gera o reverso do bcrypt, compara o  hash com a senha
+    if (!(await bcrypt.compare(password, user.password))) {
+      throw new UnauthorizedException('Credenciais inválidas.');
+    }
 
     return this.createToken(user);
   }
 
   async forget(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+
     const user = await this.prisma.user.findFirst({
       where: {
-        email,
+        email: normalizedEmail,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        password: true,
       },
     });
 
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    // Não vaza se o e-mail existe ou não no sistema (previne User Enumeration)
+    if (!user) {
+      return {
+        success: true,
+        message: 'Se o e-mail estiver cadastrado, enviaremos as instruções.',
+      };
+    }
 
-    //TO DO: Enviar e-mail...
+    // Assina JWT temporário exclusivo para recuperação (issuer: 'forget')
+    // A claim `version` vincula o token à senha atual, tornando-o de uso único após o reset
+    const resetToken = this.jwtService.sign(
+      {
+        id: user.id,
+        version: user.password.slice(-12),
+      },
+      {
+        expiresIn: '30m',
+        subject: String(user.id),
+        issuer: this.forgetIssuer,
+        audience: this.audience,
+      },
+    );
 
-    return true;
+    // TODO: Integrar MailerService / fila BullMQ para enviar `resetToken` ao e-mail do usuário.
+    // Em ambiente de desenvolvimento, retorne o token apenas se NODE_ENV !== 'production'
+    const isDev = process.env.NODE_ENV !== 'production';
+
+    return {
+      success: true,
+      message: 'Se o e-mail estiver cadastrado, enviaremos as instruções.',
+      ...(isDev ? { resetToken } : {}),
+    };
   }
 
   async reset(password: string, token: string) {
-    // TO DO: Validar o token...
+    let payload: ResetTokenPayload;
 
-    const id = 0;
-    const user = await this.prisma.user.update({
-      where: {
-        id,
-      },
-      data: {
-        password,
+    try {
+      payload = this.jwtService.verify<ResetTokenPayload>(token, {
+        issuer: this.forgetIssuer,
+        audience: this.audience,
+      });
+    } catch {
+      throw new BadRequestException(
+        'Token de recuperação inválido ou expirado.',
+      );
+    }
+
+    const userId = Number(payload.id ?? payload.sub);
+    if (!userId || Number.isNaN(userId)) {
+      throw new BadRequestException('Token de recuperação malformado.');
+    }
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        password: true,
       },
     });
-    return this.createToken(user);
+
+    if (!existingUser) {
+      throw new BadRequestException('Usuário não encontrado.');
+    }
+
+    // Garante que o token ainda não foi utilizado para alterar a senha anteriormente
+    if (payload.version !== existingUser.password.slice(-12)) {
+      throw new BadRequestException(
+        'Este token de recuperação já foi utilizado.',
+      );
+    }
+
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+
+    // Já devolve um accessToken de sessão válido após a redefinição
+    return this.createToken(updatedUser);
   }
 
   async registe(data: AuthRegisterDTO) {
     const user = await this.userService.create(data);
     return this.createToken(user);
+  }
+
+  async changePassword(
+    userId: number,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        'A nova senha deve ser diferente da senha atual.',
+      );
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, password: true },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Usuário não encontrado.');
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('A senha atual está incorreta.');
+    }
+
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { success: true };
   }
 }

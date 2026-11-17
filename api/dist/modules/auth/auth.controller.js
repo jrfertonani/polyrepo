@@ -25,6 +25,8 @@ const auth_forget_dto_1 = require("./dto/auth-forget.dto");
 const auth_login_dto_1 = require("./dto/auth-login.dto");
 const auth_register_dto_1 = require("./dto/auth-register.dto");
 const auth_reset_dto_1 = require("./dto/auth-reset.dto");
+require("multer");
+const auth_change_password_dto_1 = require("./dto/auth-change-password.dto");
 let AuthController = class AuthController {
     constructor(userService, authService, fileService) {
         this.userService = userService;
@@ -44,14 +46,47 @@ let AuthController = class AuthController {
         return this.authService.reset(password, token);
     }
     async uploadPhoto(user, photo) {
-        const path = (0, path_1.join)(__dirname, '..', '..', 'storage', 'photos', `photo-${user.id}.png`);
+        const previousPhotoUrl = user.photoUrl ?? null;
+        const fileName = `photo-${user.id}-${Date.now()}.jpg`;
+        const filePath = (0, path_1.join)(process.cwd(), 'storage', 'photos', fileName);
+        const photoUrl = `/storage/photos/${fileName}`;
         try {
-            this.fileService.upload(photo, path);
+            await this.fileService.upload(photo, filePath);
+            const updatedUser = await this.userService.updatePhoto(user.id, photoUrl);
+            if (previousPhotoUrl && previousPhotoUrl !== photoUrl) {
+                await this.fileService.removeByPublicUrl(previousPhotoUrl);
+            }
+            return {
+                success: true,
+                photoUrl: updatedUser.photoUrl,
+                user: updatedUser,
+            };
         }
         catch (e) {
-            throw new common_1.BadRequestException(e);
+            throw new common_1.BadRequestException(e instanceof Error ? e.message : 'Erro ao salvar foto do usuário.');
         }
-        return { success: true };
+    }
+    async deletePhoto(user) {
+        const currentPhotoUrl = user.photoUrl ?? null;
+        if (!currentPhotoUrl) {
+            return {
+                success: true,
+                photoUrl: null,
+                user,
+            };
+        }
+        try {
+            const updatedUser = await this.userService.updatePhoto(user.id, null);
+            await this.fileService.removeByPublicUrl(currentPhotoUrl);
+            return {
+                success: true,
+                photoUrl: null,
+                user: updatedUser,
+            };
+        }
+        catch (e) {
+            throw new common_1.BadRequestException(e instanceof Error ? e.message : 'Erro ao remover foto do usuário.');
+        }
     }
     async uploadFiles(user, files) {
         return files;
@@ -61,6 +96,9 @@ let AuthController = class AuthController {
     }
     async me(user) {
         return { user };
+    }
+    async changePassword(user, { currentPassword, newPassword }) {
+        return this.authService.changePassword(user.id, currentPassword, newPassword);
     }
 };
 exports.AuthController = AuthController;
@@ -93,13 +131,13 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "reset", null);
 __decorate([
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     (0, common_1.Post)('photo'),
     __param(0, (0, user_decorator_1.User)()),
     __param(1, (0, common_1.UploadedFile)(new common_1.ParseFilePipe({
         validators: [
-            new common_1.FileTypeValidator({ fileType: /(jpg|jpeg|png|pdf)$/ }),
+            new common_1.FileTypeValidator({ fileType: /(jpg|jpeg|png)$/ }),
             new common_1.MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }),
         ],
     }))),
@@ -108,8 +146,16 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "uploadPhoto", null);
 __decorate([
-    (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)('files')),
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Delete)('photo'),
+    __param(0, (0, user_decorator_1.User)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "deletePhoto", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)('files')),
     (0, common_1.Post)('files'),
     __param(0, (0, user_decorator_1.User)()),
     __param(1, (0, common_1.UploadedFiles)()),
@@ -118,6 +164,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "uploadFiles", null);
 __decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
         {
             name: 'photo',
@@ -128,7 +175,6 @@ __decorate([
             maxCount: 10,
         },
     ])),
-    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
     (0, common_1.Post)('files-dields'),
     __param(0, (0, user_decorator_1.User)()),
     __param(1, (0, common_1.UploadedFiles)()),
@@ -144,6 +190,15 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "me", null);
+__decorate([
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard),
+    (0, common_1.Patch)('password'),
+    __param(0, (0, user_decorator_1.User)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, auth_change_password_dto_1.AuthChangePasswordDTO]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "changePassword", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [user_service_1.UserService,

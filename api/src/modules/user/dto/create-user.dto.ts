@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsEnum,
@@ -8,9 +9,14 @@ import {
 import { Role } from 'src/shared/anums/role.enum';
 
 export class CreateUserDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
+  @MinLength(2)
   name: string;
 
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
   @IsEmail()
   email: string;
 
@@ -20,5 +26,5 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsEnum(Role)
-  role: number;
+  role?: number;
 }
