@@ -37,13 +37,19 @@ api.interceptors.response.use(
         const status = error.response?.status;
         const requestUrl = error.config?.url || '';
 
-        // Ignora 401/403 vindos de rotas de validação de credenciais para não deslogar o usuário
-        const isAuthRoute =
+        const isAuthCredentialRoute =
             requestUrl.includes('/auth/login') ||
-            requestUrl.includes('/auth/me') ||
-            requestUrl.includes('/auth/password');
+            requestUrl.includes('/auth/register') ||
+            requestUrl.includes('/auth/forget') ||
+            requestUrl.includes('/auth/reset') ||
+            requestUrl.includes('/auth/password') ||
+            requestUrl.includes('/auth/me');
 
-        if ((status === 401 || status === 403) && !isAuthRoute && !isHandlingUnauthorized) {
+        if (
+            (status === 401 || status === 403) &&
+            !isAuthCredentialRoute &&
+            !isHandlingUnauthorized
+        ) {
             isHandlingUnauthorized = true;
 
             try {

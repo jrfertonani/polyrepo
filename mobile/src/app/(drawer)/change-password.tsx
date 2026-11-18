@@ -1,7 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { useAuthStore } from "../store/authStore";
-
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,21 +12,19 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { authService } from "@/features/auth/auth.service";
+import { useAuthStore } from "@/store/authStore";
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
-  const { user, changePassword } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!user) {
-      router.replace("/login");
-    }
-  }, [user, router]);
+  if (!user) return null;
 
   const handleChangePassword = async () => {
     if (currentPassword.length < 6) {
@@ -59,7 +55,11 @@ export default function ChangePasswordScreen() {
 
     try {
       setIsSubmitting(true);
-      await changePassword(currentPassword, newPassword);
+      await authService.changePassword({ currentPassword, newPassword });
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
 
       Alert.alert("Sucesso", "Sua senha foi alterada com sucesso!", [
         { text: "OK", onPress: () => router.back() },
@@ -69,16 +69,11 @@ export default function ChangePasswordScreen() {
       const detail = Array.isArray(apiMessage)
         ? apiMessage.join("\n")
         : apiMessage || err.message || "Não foi possível alterar a senha.";
-
       Alert.alert("Erro", detail);
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <KeyboardAvoidingView
@@ -151,15 +146,8 @@ export default function ChangePasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 20,
-  },
+  container: { flex: 1, backgroundColor: "#f8fafc" },
+  scrollContent: { flexGrow: 1, justifyContent: "center", padding: 20 },
   card: {
     backgroundColor: "#ffffff",
     padding: 24,
@@ -167,17 +155,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  subtitle: {
-    fontSize: 13,
-    color: "#64748b",
-    marginTop: 4,
-    marginBottom: 24,
-  },
+  title: { fontSize: 24, fontWeight: "700", color: "#0f172a" },
+  subtitle: { fontSize: 13, color: "#64748b", marginTop: 4, marginBottom: 24 },
   label: {
     fontSize: 14,
     fontWeight: "600",
@@ -202,14 +181,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 8,
   },
-  buttonDisabled: {
-    opacity: 0.65,
-  },
-  saveButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  buttonDisabled: { opacity: 0.65 },
+  saveButtonText: { color: "#ffffff", fontSize: 16, fontWeight: "600" },
   cancelButton: {
     marginTop: 12,
     paddingVertical: 12,
@@ -218,9 +191,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#cbd5e1",
   },
-  cancelButtonText: {
-    color: "#475569",
-    fontSize: 15,
-    fontWeight: "600",
-  },
+  cancelButtonText: { color: "#475569", fontSize: 15, fontWeight: "600" },
 });

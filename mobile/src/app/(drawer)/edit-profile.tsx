@@ -1,6 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { useAuthStore } from "../store/authStore";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,23 +12,22 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useUpdateProfile } from "@/features/users/useUsers";
+import { useAuthStore } from "@/store/authStore";
 
 export default function EditProfileScreen() {
   const router = useRouter();
-  const { user, updateProfile } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
+  const updateProfileMutation = useUpdateProfile();
 
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Redireciona caso a sessão seja perdida
-  useEffect(() => {
-    if (!user) {
-      router.replace("/login");
-    }
-  }, [user, router]);
+  if (!user) return null;
 
-  const handleSave = async () => {
+  const isSubmitting = updateProfileMutation.isPending;
+
+  const handleSave = () => {
     const trimmedName = name.trim();
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -43,40 +41,30 @@ export default function EditProfileScreen() {
       return;
     }
 
-    // Evita chamada desnecessária se nada foi alterado
-    if (trimmedName === user?.name && normalizedEmail === user?.email) {
+    if (trimmedName === user.name && normalizedEmail === user.email) {
       Alert.alert("Aviso", "Nenhuma alteração foi feita nos dados.");
       return;
     }
 
-    try {
-      setIsSubmitting(true);
+    const changes: { name?: string; email?: string } = {};
+    if (trimmedName !== user.name) changes.name = trimmedName;
+    if (normalizedEmail !== user.email) changes.email = normalizedEmail;
 
-      // Monta apenas os campos modificados para o PATCH /user/me
-      const changes: { name?: string; email?: string } = {};
-      if (trimmedName !== user?.name) changes.name = trimmedName;
-      if (normalizedEmail !== user?.email) changes.email = normalizedEmail;
-
-      await updateProfile(changes);
-
-      Alert.alert("Sucesso", "Dados do perfil atualizados!", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
-    } catch (err: any) {
-      const apiMessage = err.response?.data?.message;
-      const detail = Array.isArray(apiMessage)
-        ? apiMessage.join("\n")
-        : apiMessage || err.message || "Não foi possível atualizar o perfil.";
-
-      Alert.alert("Erro ao atualizar", detail);
-    } finally {
-      setIsSubmitting(false);
-    }
+    updateProfileMutation.mutate(changes, {
+      onSuccess: () => {
+        Alert.alert("Sucesso", "Dados do perfil atualizados!", [
+          { text: "OK", onPress: () => router.back() },
+        ]);
+      },
+      onError: (err: any) => {
+        const apiMessage = err.response?.data?.message;
+        const detail = Array.isArray(apiMessage)
+          ? apiMessage.join("\n")
+          : apiMessage || err.message || "Não foi possível atualizar o perfil.";
+        Alert.alert("Erro ao atualizar", detail);
+      },
+    });
   };
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <KeyboardAvoidingView
@@ -140,15 +128,8 @@ export default function EditProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 20,
-  },
+  container: { flex: 1, backgroundColor: "#f8fafc" },
+  scrollContent: { flexGrow: 1, justifyContent: "center", padding: 20 },
   card: {
     backgroundColor: "#ffffff",
     padding: 24,
@@ -156,17 +137,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  subtitle: {
-    fontSize: 13,
-    color: "#64748b",
-    marginTop: 4,
-    marginBottom: 24,
-  },
+  title: { fontSize: 24, fontWeight: "700", color: "#0f172a" },
+  subtitle: { fontSize: 13, color: "#64748b", marginTop: 4, marginBottom: 24 },
   label: {
     fontSize: 14,
     fontWeight: "600",
@@ -191,14 +163,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 8,
   },
-  buttonDisabled: {
-    opacity: 0.65,
-  },
-  saveButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  buttonDisabled: { opacity: 0.65 },
+  saveButtonText: { color: "#ffffff", fontSize: 16, fontWeight: "600" },
   cancelButton: {
     marginTop: 12,
     paddingVertical: 12,
@@ -207,9 +173,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#cbd5e1",
   },
-  cancelButtonText: {
-    color: "#475569",
-    fontSize: 15,
-    fontWeight: "600",
-  },
+  cancelButtonText: { color: "#475569", fontSize: 15, fontWeight: "600" },
 });

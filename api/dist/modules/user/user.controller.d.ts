@@ -24,7 +24,7 @@ export declare class UserController {
         updatedAt: Date;
         id: number;
     }>;
-    findAll(): import(".prisma/client").Prisma.PrismaPromise<{
+    findAll(): Promise<{
         name: string;
         email: string;
         role: number;

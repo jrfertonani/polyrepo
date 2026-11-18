@@ -39,7 +39,7 @@ export class UserController {
   }
 
   @Roles(Role.Admin)
-  @UseGuards(RoleGuard)
+  @UseGuards(AuthGuard, RoleGuard)
   @Get()
   findAll() {
     return this.userService.findAll();
@@ -70,7 +70,7 @@ export class UserController {
   }
 
   @Roles(Role.Admin)
-  @UseGuards(RoleGuard)
+  @UseGuards(AuthGuard, RoleGuard)
   @Patch(':id/role')
   updateRole(
     @Param('id', PositiveIntPipe) id: number,

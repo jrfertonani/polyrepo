@@ -9,12 +9,12 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UserService = void 0;
+exports.UserService = exports.USER_SAFE_SELECT = void 0;
 const common_1 = require("@nestjs/common");
 const bcrypt = require("bcrypt");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const role_enum_1 = require("../../shared/anums/role.enum");
-const USER_SAFE_SELECT = {
+exports.USER_SAFE_SELECT = {
     id: true,
     name: true,
     email: true,
@@ -41,19 +41,20 @@ let UserService = class UserService {
                 ...data,
                 password: hashedPassword,
             },
-            select: USER_SAFE_SELECT,
+            select: exports.USER_SAFE_SELECT,
         });
     }
-    findAll() {
+    async findAll() {
         return this.prisma.user.findMany({
-            select: USER_SAFE_SELECT,
+            select: exports.USER_SAFE_SELECT,
+            orderBy: { id: 'asc' },
         });
     }
     async findOne(id) {
         await this.exist(id);
         return this.prisma.user.findUnique({
             where: { id },
-            select: USER_SAFE_SELECT,
+            select: exports.USER_SAFE_SELECT,
         });
     }
     async update(id, data) {
@@ -80,14 +81,14 @@ let UserService = class UserService {
         return this.prisma.user.update({
             where: { id },
             data: updateData,
-            select: USER_SAFE_SELECT,
+            select: exports.USER_SAFE_SELECT,
         });
     }
     async remove(id) {
         await this.findOne(id);
         return this.prisma.user.delete({
             where: { id },
-            select: USER_SAFE_SELECT,
+            select: exports.USER_SAFE_SELECT,
         });
     }
     async exist(id) {
@@ -99,7 +100,7 @@ let UserService = class UserService {
         return this.prisma.user.update({
             where: { id },
             data: { photoUrl },
-            select: USER_SAFE_SELECT,
+            select: exports.USER_SAFE_SELECT,
         });
     }
     async updateRole(targetUserId, actorUserId, { role }) {
@@ -110,7 +111,7 @@ let UserService = class UserService {
         return this.prisma.user.update({
             where: { id: targetUserId },
             data: { role },
-            select: USER_SAFE_SELECT,
+            select: exports.USER_SAFE_SELECT,
         });
     }
 };

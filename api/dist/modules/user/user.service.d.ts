@@ -2,6 +2,15 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile';
 import { UpdateUserDto } from './dto/update-user.dto';
+export declare const USER_SAFE_SELECT: {
+    readonly id: true;
+    readonly name: true;
+    readonly email: true;
+    readonly role: true;
+    readonly photoUrl: true;
+    readonly createdAt: true;
+    readonly updatedAt: true;
+};
 export declare class UserService {
     private readonly prisma;
     constructor(prisma: PrismaService);
@@ -14,7 +23,7 @@ export declare class UserService {
         updatedAt: Date;
         id: number;
     }>;
-    findAll(): import(".prisma/client").Prisma.PrismaPromise<{
+    findAll(): Promise<{
         name: string;
         email: string;
         role: number;

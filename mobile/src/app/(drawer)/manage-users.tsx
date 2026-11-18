@@ -1,5 +1,4 @@
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,57 +11,26 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { AuthUser, useAuthStore } from "../store/authStore";
-
-const ROLE_USER = 1;
-const ROLE_ADMIN = 2;
+import { AuthUser, UserRole } from "@/features/auth/auth.types";
+import { useUpdateUserRole, useUsersList } from "@/features/users/useUsers";
+import { useAuthStore } from "@/store/authStore";
 
 export default function ManageUsersScreen() {
-  const router = useRouter();
-  const { user: currentUser, fetchUsers, updateUserRole } = useAuthStore();
+  const currentUser = useAuthStore((state) => state.user);
+  const {
+    data: users = [],
+    isLoading,
+    isError,
+    error,
+    isRefetching,
+    refetch,
+  } = useUsersList();
+  const updateRoleMutation = useUpdateUserRole();
 
-  const [users, setUsers] = useState<AuthUser[]>([]);
   const [search, setSearch] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
   const baseUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
-
-  const loadUsers = useCallback(
-    async (silent = false) => {
-      try {
-        if (!silent) setIsLoading(true);
-        const list = await fetchUsers();
-        setUsers(list);
-      } catch (err: any) {
-        const apiMessage = err.response?.data?.message;
-        const detail = Array.isArray(apiMessage)
-          ? apiMessage.join("\n")
-          : apiMessage || err.message || "Erro ao carregar usuários.";
-        Alert.alert("Acesso Negado / Erro", detail, [
-          { text: "Voltar", onPress: () => router.back() },
-        ]);
-      } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
-      }
-    },
-    [fetchUsers, router],
-  );
-
-  useEffect(() => {
-    if (!currentUser || currentUser.role !== ROLE_ADMIN) {
-      router.replace("/");
-      return;
-    }
-    loadUsers();
-  }, [currentUser, loadUsers, router]);
-
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    loadUsers(true);
-  };
 
   const filteredUsers = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -75,8 +43,8 @@ export default function ManageUsersScreen() {
   }, [users, search]);
 
   const handleToggleRole = (target: AuthUser) => {
-    const isCurrentlyAdmin = target.role === ROLE_ADMIN;
-    const nextRole = isCurrentlyAdmin ? ROLE_USER : ROLE_ADMIN;
+    const isCurrentlyAdmin = target.role === UserRole.Admin;
+    const nextRole = isCurrentlyAdmin ? UserRole.User : UserRole.Admin;
     const actionLabel = isCurrentlyAdmin
       ? "Remover permissão de Admin"
       : "Promover a Admin";
@@ -89,26 +57,23 @@ export default function ManageUsersScreen() {
         {
           text: "Confirmar",
           style: isCurrentlyAdmin ? "destructive" : "default",
-          onPress: async () => {
-            try {
-              setUpdatingId(target.id);
-              const updated = await updateUserRole(target.id, nextRole);
-              setUsers((prev) =>
-                prev.map((item) =>
-                  item.id === target.id
-                    ? { ...item, role: updated.role }
-                    : item,
-                ),
-              );
-            } catch (err: any) {
-              const apiMessage = err.response?.data?.message;
-              const detail = Array.isArray(apiMessage)
-                ? apiMessage.join("\n")
-                : apiMessage || err.message || "Falha ao atualizar permissão.";
-              Alert.alert("Erro", detail);
-            } finally {
-              setUpdatingId(null);
-            }
+          onPress: () => {
+            setUpdatingId(target.id);
+            updateRoleMutation.mutate(
+              { userId: target.id, role: nextRole },
+              {
+                onError: (err: any) => {
+                  const apiMessage = err.response?.data?.message;
+                  const detail = Array.isArray(apiMessage)
+                    ? apiMessage.join("\n")
+                    : apiMessage ||
+                      err.message ||
+                      "Falha ao atualizar permissão.";
+                  Alert.alert("Erro", detail);
+                },
+                onSettled: () => setUpdatingId(null),
+              },
+            );
           },
         },
       ],
@@ -124,21 +89,29 @@ export default function ManageUsersScreen() {
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Gerenciar Permissões</Text>
-          <Text style={styles.subtitle}>
-            {users.length} {users.length === 1 ? "usuário" : "usuários"}{" "}
-            cadastrados
-          </Text>
-        </View>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backLink}>Voltar</Text>
+  if (isError) {
+    const err = error as any;
+    const status = err?.response?.status;
+    const apiMessage = err?.response?.data?.message;
+    const detail = Array.isArray(apiMessage)
+      ? apiMessage.join("\n")
+      : apiMessage || err?.message || "Erro ao buscar /user.";
+
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorTitle}>
+          Erro ao buscar /user {status ? `(HTTP ${status})` : ""}
+        </Text>
+        <Text style={styles.errorDetail}>{detail}</Text>
+        <Pressable style={styles.retryButton} onPress={() => refetch()}>
+          <Text style={styles.actionButtonText}>Tentar Novamente</Text>
         </Pressable>
       </View>
+    );
+  }
 
+  return (
+    <View style={styles.container}>
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
@@ -157,8 +130,8 @@ export default function ManageUsersScreen() {
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
+            refreshing={isRefetching}
+            onRefresh={() => refetch()}
             tintColor="#2563eb"
           />
         }
@@ -168,7 +141,7 @@ export default function ManageUsersScreen() {
           </View>
         }
         renderItem={({ item }) => {
-          const isAdmin = item.role === ROLE_ADMIN;
+          const isAdmin = item.role === UserRole.Admin;
           const isSelf = item.id === currentUser?.id;
           const isBusy = updatingId === item.id;
           const avatarUri =
@@ -238,50 +211,34 @@ export default function ManageUsersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-    paddingTop: 56,
-  },
+  container: { flex: 1, backgroundColor: "#f8fafc" },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f8fafc",
+    paddingHorizontal: 24,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-  },
-  title: {
-    fontSize: 20,
+  errorTitle: {
+    fontSize: 16,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#dc2626",
+    textAlign: "center",
   },
-  subtitle: {
-    fontSize: 12,
+  errorDetail: {
+    marginTop: 8,
+    fontSize: 14,
     color: "#64748b",
-    marginTop: 2,
+    textAlign: "center",
   },
-  backButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+  retryButton: {
+    marginTop: 16,
+    backgroundColor: "#2563eb",
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 8,
   },
-  backLink: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#2563eb",
-  },
-  searchContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 4,
-  },
+  searchContainer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4 },
   searchInput: {
     backgroundColor: "#ffffff",
     borderWidth: 1,
@@ -292,14 +249,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#0f172a",
   },
-  listContent: {
-    padding: 20,
-    gap: 12,
-  },
-  emptyBox: {
-    alignItems: "center",
-    paddingVertical: 32,
-  },
+  listContent: { padding: 20, gap: 12 },
+  emptyBox: { alignItems: "center", paddingVertical: 32 },
   userCard: {
     backgroundColor: "#ffffff",
     padding: 14,
@@ -325,25 +276,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarInitials: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#475569",
-  },
-  userInfo: {
-    flex: 1,
-    paddingRight: 10,
-  },
-  userName: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  userEmail: {
-    fontSize: 13,
-    color: "#64748b",
-    marginTop: 2,
-  },
+  avatarInitials: { fontSize: 16, fontWeight: "700", color: "#475569" },
+  userInfo: { flex: 1, paddingRight: 10 },
+  userName: { fontSize: 15, fontWeight: "700", color: "#0f172a" },
+  userEmail: { fontSize: 13, color: "#64748b", marginTop: 2 },
   roleBadge: {
     alignSelf: "flex-start",
     paddingHorizontal: 8,
@@ -351,22 +287,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginTop: 6,
   },
-  adminBadge: {
-    backgroundColor: "#dbeafe",
-  },
-  userBadge: {
-    backgroundColor: "#f1f5f9",
-  },
-  roleBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  adminBadgeText: {
-    color: "#1d4ed8",
-  },
-  userBadgeText: {
-    color: "#475569",
-  },
+  adminBadge: { backgroundColor: "#dbeafe" },
+  userBadge: { backgroundColor: "#f1f5f9" },
+  roleBadgeText: { fontSize: 11, fontWeight: "700" },
+  adminBadgeText: { color: "#1d4ed8" },
+  userBadgeText: { color: "#475569" },
   actionButton: {
     paddingVertical: 9,
     paddingHorizontal: 12,
@@ -374,23 +299,9 @@ const styles = StyleSheet.create({
     minWidth: 96,
     alignItems: "center",
   },
-  promoteButton: {
-    backgroundColor: "#2563eb",
-  },
-  revokeButton: {
-    backgroundColor: "#dc2626",
-  },
-  buttonDisabled: {
-    opacity: 0.65,
-  },
-  actionButtonText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  muted: {
-    marginTop: 8,
-    fontSize: 14,
-    color: "#64748b",
-  },
+  promoteButton: { backgroundColor: "#2563eb" },
+  revokeButton: { backgroundColor: "#dc2626" },
+  buttonDisabled: { opacity: 0.65 },
+  actionButtonText: { color: "#ffffff", fontSize: 12, fontWeight: "600" },
+  muted: { marginTop: 8, fontSize: 14, color: "#64748b" },
 });

@@ -11,7 +11,7 @@ import { UpdateProfileDto } from './dto/update-profile';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from 'src/shared/anums/role.enum';
 
-const USER_SAFE_SELECT = {
+export const USER_SAFE_SELECT = {
   id: true,
   name: true,
   email: true,
@@ -19,7 +19,7 @@ const USER_SAFE_SELECT = {
   photoUrl: true,
   createdAt: true,
   updatedAt: true,
-};
+} as const;
 
 @Injectable()
 export class UserService {
@@ -46,9 +46,10 @@ export class UserService {
     });
   }
 
-  findAll() {
+  async findAll() {
     return this.prisma.user.findMany({
       select: USER_SAFE_SELECT,
+      orderBy: { id: 'asc' },
     });
   }
 
