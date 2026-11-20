@@ -20,12 +20,14 @@ const path_1 = require("path");
 const user_module_1 = require("./modules/user/user.module");
 const auth_module_1 = require("./modules/auth/auth.module");
 const HealthModule_1 = require("./health/HealthModule");
+const clients_module_1 = require("./modules/clients/clients.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            clients_module_1.ClientsModule,
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
             }),
@@ -47,6 +49,7 @@ exports.AppModule = AppModule = __decorate([
             }),
             (0, common_1.forwardRef)(() => user_module_1.UserModule),
             (0, common_1.forwardRef)(() => auth_module_1.AuthModule),
+            clients_module_1.ClientsModule,
             HealthModule_1.HealthModule,
             mailer_1.MailerModule.forRoot({
                 transport: {

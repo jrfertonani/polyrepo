@@ -19,7 +19,7 @@ const user_decorator_1 = require("../../common/decorators/user.decorator");
 const auth_guard_1 = require("../../common/guards/auth.guard");
 const role_guard_1 = require("../../common/guards/role.guard");
 const positive_int_pipe_1 = require("../../common/pipes/positive-int.pipe");
-const role_enum_1 = require("../../shared/anums/role.enum");
+const role_enum_1 = require("../../shared/enums/role.enum");
 const create_user_dto_1 = require("./dto/create-user.dto");
 const update_profile_1 = require("./dto/update-profile");
 const update_user_dto_1 = require("./dto/update-user.dto");
@@ -71,7 +71,7 @@ __decorate([
 ], UserController.prototype, "create", null);
 __decorate([
     (0, roles_decorator_1.Roles)(role_enum_1.Role.Admin),
-    (0, common_1.UseGuards)(role_guard_1.RoleGuard),
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard, role_guard_1.RoleGuard),
     (0, common_1.Get)(),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -107,7 +107,7 @@ __decorate([
 ], UserController.prototype, "remove", null);
 __decorate([
     (0, roles_decorator_1.Roles)(role_enum_1.Role.Admin),
-    (0, common_1.UseGuards)(role_guard_1.RoleGuard),
+    (0, common_1.UseGuards)(auth_guard_1.AuthGuard, role_guard_1.RoleGuard),
     (0, common_1.Patch)(':id/role'),
     __param(0, (0, common_1.Param)('id', positive_int_pipe_1.PositiveIntPipe)),
     __param(1, (0, user_decorator_1.User)()),

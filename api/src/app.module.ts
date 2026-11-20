@@ -12,8 +12,11 @@ import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './health/HealthModule';
 
+import { ClientsModule } from './modules/clients/clients.module';
+
 @Module({
   imports: [
+    ClientsModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -36,6 +39,7 @@ import { HealthModule } from './health/HealthModule';
     }),
     forwardRef(() => UserModule),
     forwardRef(() => AuthModule),
+    ClientsModule,
     HealthModule,
     MailerModule.forRoot({
       transport: {
@@ -68,4 +72,4 @@ import { HealthModule } from './health/HealthModule';
   ],
   exports: [UserModule],
 })
-export class AppModule { }
+export class AppModule {}

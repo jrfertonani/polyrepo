@@ -12,7 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateUserDto = void 0;
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
-const role_enum_1 = require("../../../shared/anums/role.enum");
+const role_enum_1 = require("../../../shared/enums/role.enum");
 class CreateUserDto {
 }
 exports.CreateUserDto = CreateUserDto;

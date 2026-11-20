@@ -13,7 +13,7 @@ import { User } from 'src/common/decorators/user.decorator';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { RoleGuard } from 'src/common/guards/role.guard';
 import { PositiveIntPipe } from 'src/common/pipes/positive-int.pipe';
-import { Role } from 'src/shared/anums/role.enum';
+import { Role } from 'src/shared/enums/role.enum';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -23,7 +23,7 @@ import { UpdateUserRoleDto } from './dto/update-user-role';
 @UseGuards(AuthGuard)
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) { }
+  constructor(private readonly userService: UserService) {}
 
   // Rota literal declarada ANTES das rotas parametrizadas (:id)
   @Patch('me')

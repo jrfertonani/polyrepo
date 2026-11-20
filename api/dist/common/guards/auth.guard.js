@@ -11,13 +11,12 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthGuard = void 0;
 const common_1 = require("@nestjs/common");
+const core_1 = require("@nestjs/core");
 const auth_service_1 = require("../../modules/auth/auth.service");
 const user_service_1 = require("../../modules/user/user.service");
-const jwt_1 = require("@nestjs/jwt");
-const core_1 = require("@nestjs/core");
+const roles_decorator_1 = require("../decorators/roles.decorator");
 let AuthGuard = class AuthGuard {
-    constructor(jwtService, authService, userService, reflector) {
-        this.jwtService = jwtService;
+    constructor(authService, userService, reflector) {
         this.authService = authService;
         this.userService = userService;
         this.reflector = reflector;
@@ -25,22 +24,34 @@ let AuthGuard = class AuthGuard {
     async canActivate(context) {
         const request = context.switchToHttp().getRequest();
         const { authorization } = request.headers;
+        if (!authorization || !authorization.startsWith('Bearer ')) {
+            throw new common_1.UnauthorizedException('Token não fornecido ou mal formatado.');
+        }
+        const token = authorization.split(' ')[1];
+        let data;
         try {
-            const data = this.authService.checkToken((authorization ?? '').split(' ')[1]);
+            data = this.authService.checkToken(token);
             request.tokenPayLoad = data;
-            request.user = await this.userService.findOne(data.id);
-            return true;
         }
         catch (e) {
-            return false;
+            throw new common_1.UnauthorizedException('Token inválido ou expirado.');
         }
+        const user = await this.userService.findOne(data.id);
+        if (!user) {
+            throw new common_1.UnauthorizedException('Usuário não encontrado.');
+        }
+        request.user = user;
+        const requiredRoles = this.reflector.getAllAndOverride(roles_decorator_1.ROLES_KEY, [context.getHandler(), context.getClass()]);
+        if (requiredRoles && !requiredRoles.includes(user.role)) {
+            throw new common_1.ForbiddenException('Acesso restrito a administradores.');
+        }
+        return true;
     }
 };
 exports.AuthGuard = AuthGuard;
 exports.AuthGuard = AuthGuard = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [jwt_1.JwtService,
-        auth_service_1.AuthService,
+    __metadata("design:paramtypes", [auth_service_1.AuthService,
         user_service_1.UserService,
         core_1.Reflector])
 ], AuthGuard);

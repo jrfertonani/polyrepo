@@ -6,7 +6,7 @@ import {
   IsString,
   MinLength,
 } from 'class-validator';
-import { Role } from 'src/shared/anums/role.enum';
+import { Role } from 'src/shared/enums/role.enum';
 
 export class CreateUserDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))

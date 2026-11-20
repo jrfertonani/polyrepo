@@ -9,7 +9,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Role } from 'src/shared/anums/role.enum';
+import { Role } from 'src/shared/enums/role.enum';
 
 export const USER_SAFE_SELECT = {
   id: true,
@@ -23,7 +23,7 @@ export const USER_SAFE_SELECT = {
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateUserDto) {
     const emailExists = await this.prisma.user.count({
@@ -125,7 +125,7 @@ export class UserService {
   ) {
     if (targetUserId === actorUserId && role !== Role.Admin) {
       throw new BadRequestException(
-        'Você não pode remover sua própria permissão de Administradoe.'
+        'Você não pode remover sua própria permissão de Administradoe.',
       );
     }
 

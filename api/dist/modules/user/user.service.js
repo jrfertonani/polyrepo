@@ -13,7 +13,7 @@ exports.UserService = exports.USER_SAFE_SELECT = void 0;
 const common_1 = require("@nestjs/common");
 const bcrypt = require("bcrypt");
 const prisma_service_1 = require("../../prisma/prisma.service");
-const role_enum_1 = require("../../shared/anums/role.enum");
+const role_enum_1 = require("../../shared/enums/role.enum");
 exports.USER_SAFE_SELECT = {
     id: true,
     name: true,

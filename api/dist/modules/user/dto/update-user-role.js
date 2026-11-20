@@ -11,7 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateUserRoleDto = void 0;
 const class_validator_1 = require("class-validator");
-const role_enum_1 = require("../../../shared/anums/role.enum");
+const role_enum_1 = require("../../../shared/enums/role.enum");
 class UpdateUserRoleDto {
 }
 exports.UpdateUserRoleDto = UpdateUserRoleDto;
